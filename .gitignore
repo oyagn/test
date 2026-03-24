@@ -1,0 +1,19 @@
+# 忽略所有 Python 缓存
+__pycache__/
+*.py[cod]
+
+# 忽略 Anaconda 环境文件夹（如果它在你的项目目录下）
+env/
+venv/
+.conda/
+
+# 忽略大模型权重文件 (非常重要！)
+*.pth
+*.onnx
+*.safetensors
+*.bin
+
+# 忽略日志和临时文件
+*.log
+.vscode/
+.idea/
