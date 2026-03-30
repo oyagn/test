@@ -1,4 +1,4 @@
-name: AI Refactor Bot (Fixed Windows)
+name: AI Refactor Bot (Linux A800 Dedicated)
 
 on:
   issues:
@@ -7,52 +7,93 @@ on:
 jobs:
   aider_refactor:
     if: github.event.label.name == 'refactor'
+    # 指向你在 A800 上配置的 self-hosted runner
     runs-on: self-hosted 
 
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
     steps:
-      - name: Checkout Code
+      - name: 1. 拉取代码 (Checkout)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Aider 需要完整的 git 历史来分析代码
 
-      - name: Run Aider
+      - name: 2. 运行环境诊断 (Diagnostics)
+        run: |
+          echo "=== 运行身份诊断 ==="
+          whoami
+          pwd
+          git --version
+          python --version || echo "Python not found in system path, waiting for conda..."
+
+      - name: 3. 执行 Aider 重构 (开启详细日志)
         id: aider_run
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        # 将 shell 改为 powershell (系统自带版)
-        shell: powershell
         run: |
-          # 配置 Git 身份
-          git config user.name "AI-Refactor-Bot"
+          # 激活 A800 上的专属 Conda 环境
+          source /home/aider_user/miniconda3/etc/profile.d/conda.sh
+          conda activate aider-env
+          
+          # 配置 Git 机器人身份 (防止提交失败)
+          git config user.name "A800-Aider-Bot"
           git config user.email "bot@example.com"
           
-          # 【关键修改】请将下方的路径替换为你刚才用 'where aider' 查到的真实路径
-          $AIDER_PATH = "D:\pro_software\anaconda\file\envs\aider-env\Scripts\aider.exe"
-          
-          # 运行 Aider
-          & $AIDER_PATH --model deepseek/deepseek-chat --yes --message "Instruction: ${{ github.event.issue.title }}. Context: ${{ github.event.issue.body }}"
+          echo "=== 开始运行 Aider ==="
+          # 【详细日志开启】:
+          # --verbose: 输出 Aider 的详细思考过程和模型交互
+          # --no-stream: 禁用流式输出，确保日志在 GitHub Actions 界面更整洁地分块显示
+          aider --model deepseek/deepseek-chat \
+                --verbose \
+                --yes \
+                --message "Instruction: ${{ github.event.issue.title }}. Context: ${{ github.event.issue.body }}" \
+                2>&1 | tee aider_full.log
 
-      - name: Verify and Force Commit
+      - name: 4. 强制检查并提交 (Force Commit Recovery)
         if: always()
-        shell: powershell
         run: |
-          echo "=== 当前目录文件列表 ==="
-          dir
+          echo "=== 检查工作区变动 ==="
+          git status
           
-          $status = git status --porcelain
-          if ($status) {
-              echo "检测到代码改动，正在强制提交..."
-              git add .
-              git commit -m "AI: 自动生成代码 - ${{ github.event.issue.title }}"
-          } else {
-              echo "Aider 没有产生任何文件修改。"
-          }
+          # 如果 Aider 产生修改但由于某种原因未自动提交，执行强制提交
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "检测到未提交的代码改动，正在强制进行 Git Commit..."
+            git add .
+            git commit -m "AI(A800): 自动重构完成 - ${{ github.event.issue.title }}"
+          else
+            echo "当前工作区干净，无新变动。"
+          fi
 
-      - name: Create Pull Request
-        if: always()
+      - name: 5. 自动创建 PR (Create Pull Request)
+        if: success()
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ai-refactor-local-${{ github.event.issue.number }}
+          branch: ai-refactor-a800-${{ github.event.issue.number }}
           title: "AI Refactor: ${{ github.event.issue.title }}"
-          body: "此 PR 由本地 Runner 自动生成。请检查代码逻辑。"
+          body: |
+            ## 🚀 A800 智能体重构报告
+            该任务由 A800 服务器上的本地 Runner 执行完成。
+            
+            **任务来源：** Issue #${{ github.event.issue.number }}
+            **执行环境：** Linux / aider-env (Conda)
+            **模型：** DeepSeek-Chat
+
+      - name: 6. 任务反馈 (Post Feedback to Issue)
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ## 🤖 A800 运行报告
+            **任务状态：** ${{ job.status == 'success' && '✅ 成功' || '❌ 失败' }}
+            
+            **详细日志摘要：**
+            ```text
+            $(tail -n 20 aider_full.log)
+            ```
+            ---
+            *本报告由 A800 服务器上的 Self-hosted Runner 实时生成。*
