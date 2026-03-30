@@ -36,10 +36,11 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 运行 Aider 并将所有日志输出到文件
-          aider --model deepseek/deepseek-chat --yes --message "Instruction: ${{ github.event.issue.title }}. Context: ${{ github.event.issue.body }}" > aider_output.log 2>&1
 
+          # 1. 移除 > aider_output.log，让日志直接打印在控制台
+          # 2. 显式指定使用的模型格式（有时 deepseek/deepseek-chat 在 Aider 中需要这样写）
+          aider --model deepseek/deepseek-chat --yes --message "Instruction: ${{ github.event.issue.title }}. Context: ${{ github.event.issue.body }}"
+         
       - name: Create Pull Request
         if: steps.aider_run.outcome == 'success'
         id: cpr
