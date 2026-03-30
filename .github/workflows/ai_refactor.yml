@@ -40,7 +40,17 @@ jobs:
           # 1. 移除 > aider_output.log，让日志直接打印在控制台
           # 2. 显式指定使用的模型格式（有时 deepseek/deepseek-chat 在 Aider 中需要这样写）
           aider --model deepseek/deepseek-chat --yes --message "Instruction: ${{ github.event.issue.title }}. Context: ${{ github.event.issue.body }}"
-         
+     
+      - name: Force Commit Changes
+        run: |
+          # 检查是否有文件变动
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "AI: 手动强制提交 Aider 修改的内容"
+          else
+            echo "警告：没有任何文件被修改！"
+          fi
+          
       - name: Create Pull Request
         if: steps.aider_run.outcome == 'success'
         id: cpr
