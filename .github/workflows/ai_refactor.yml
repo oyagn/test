@@ -72,7 +72,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ai-refactor-a800-${{ github.event.issue.number }}
+          branch: aider/issue-${{ github.event.issue.number }}
           title: "AI Refactor: ${{ github.event.issue.title }}"
           body: |
             ## 🚀 A800 智能体重构报告
